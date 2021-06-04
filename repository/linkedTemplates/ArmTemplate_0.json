@@ -1,0 +1,364 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "repository"
+		},
+		"RepositoryDWH_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'RepositoryDWH'"
+		},
+		"RepositorySrc_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'RepositorySrc'"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/RepositoryDWH')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"connectionString": "[parameters('RepositoryDWH_connectionString')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/RepositorySrc')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"connectionString": "[parameters('RepositorySrc_connectionString')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ETL_Config')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "RepositoryDWH",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "audit",
+					"table": "etl_config"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/RepositoryDWH')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/SourceDataset')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "RepositorySrc",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"source_schema_name": {
+						"type": "string",
+						"defaultValue": "SalesLT"
+					},
+					"source_table_name": {
+						"type": "string",
+						"defaultValue": "Product"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().source_schema_name",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().source_table_name",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/RepositorySrc')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/TargetDataset')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "RepositoryDWH",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"target_schema_name": {
+						"type": "string",
+						"defaultValue": "dwh"
+					},
+					"target_table_name": {
+						"type": "string",
+						"defaultValue": "Product"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().target_schema_name",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().target_table_name",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/RepositoryDWH')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LoadDWH')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Table List",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": "select * from audit.ETL_config where active=1",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "ETL_Config",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "LoadEachTable",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Table List",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Table List').output.value",
+								"type": "Expression"
+							},
+							"batchCount": 4,
+							"activities": [
+								{
+									"name": "SourceToStage",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "ProcessDate",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"additionalColumns": [
+												{
+													"name": "InsertDate",
+													"value": {
+														"value": "@variables('InsertDate')",
+														"type": "Expression"
+													}
+												}
+											],
+											"sqlReaderQuery": {
+												"value": "SELECT @{item().column_list}\nFROM @{item().source_schema_name}.@{item().source_table_name}",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "AzureSqlSink",
+											"preCopyScript": {
+												"value": "IF OBJECT_ID('@{item().target_schema_name}.@{item().target_table_name}') IS NOT NULL\nTRUNCATE TABLE @{item().target_schema_name}.@{item().target_table_name}\n",
+												"type": "Expression"
+											},
+											"tableOption": "autoCreate",
+											"disableMetricsCollection": false
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "SourceDataset",
+											"type": "DatasetReference",
+											"parameters": {
+												"source_schema_name": {
+													"value": "@item().source_schema_name",
+													"type": "Expression"
+												},
+												"source_table_name": {
+													"value": "@item().source_table_name",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "TargetDataset",
+											"type": "DatasetReference",
+											"parameters": {
+												"target_schema_name": {
+													"value": "@item().target_schema_name",
+													"type": "Expression"
+												},
+												"target_table_name": {
+													"value": "@item().target_table_name",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "ProcessDate",
+									"type": "SetVariable",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "InsertDate",
+										"value": {
+											"value": "@formatDateTime(utcnow(), 'yyyy-MM-dd hh:mm:ss')",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Insert Row Count",
+									"type": "SetVariable",
+									"dependsOn": [
+										{
+											"activity": "SourceToStage",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "InsertRowCount",
+										"value": {
+											"value": "@{activity('SourceToStage').output.rowsCopied}",
+											"type": "Expression"
+										}
+									}
+								},
+								{
+									"name": "Extract Row Count",
+									"type": "SetVariable",
+									"dependsOn": [
+										{
+											"activity": "SourceToStage",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "ExtractRowCount",
+										"value": {
+											"value": "@{activity('SourceToStage').output.rowsRead}",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					}
+				],
+				"variables": {
+					"InsertDate": {
+						"type": "String"
+					},
+					"InsertRowCount": {
+						"type": "String"
+					},
+					"ExtractRowCount": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2021-06-04T21:06:17Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ETL_Config')]",
+				"[concat(variables('factoryId'), '/datasets/SourceDataset')]",
+				"[concat(variables('factoryId'), '/datasets/TargetDataset')]"
+			]
+		}
+	]
+}
