@@ -149,6 +149,46 @@
 									"type": "Expression"
 								}
 							}
+						},
+						{
+							"name": "Insert Row Count",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "SourceToStage",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "InsertRowCount",
+								"value": {
+									"value": "@{activity('SourceToStage').output.rowsCopied}",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Extract Row Count",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "SourceToStage",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "ExtractRowCount",
+								"value": {
+									"value": "@{activity('SourceToStage').output.rowsRead}",
+									"type": "Expression"
+								}
+							}
 						}
 					]
 				}
@@ -156,6 +196,12 @@
 		],
 		"variables": {
 			"InsertDate": {
+				"type": "String"
+			},
+			"InsertRowCount": {
+				"type": "String"
+			},
+			"ExtractRowCount": {
 				"type": "String"
 			}
 		},
