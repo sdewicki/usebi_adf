@@ -1,0 +1,9 @@
+{
+	"name": "repository",
+	"location": "northeurope",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "c0719dd9-d90b-410b-9a81-f430ee5f96f6",
+		"tenantId": "d7f39883-acc4-4df3-9fee-425f026b089c"
+	}
+}

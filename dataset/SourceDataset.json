@@ -1,0 +1,33 @@
+{
+	"name": "SourceDataset",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "RepositorySrc",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"source_schema_name": {
+				"type": "string",
+				"defaultValue": "SalesLT"
+			},
+			"source_table_name": {
+				"type": "string",
+				"defaultValue": "Product"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": {
+				"value": "@dataset().source_schema_name",
+				"type": "Expression"
+			},
+			"table": {
+				"value": "@dataset().source_table_name",
+				"type": "Expression"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

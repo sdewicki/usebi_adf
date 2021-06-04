@@ -1,0 +1,33 @@
+{
+	"name": "TargetDataset",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "RepositoryDWH",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"target_schema_name": {
+				"type": "string",
+				"defaultValue": "dwh"
+			},
+			"target_table_name": {
+				"type": "string",
+				"defaultValue": "Product"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": {
+				"value": "@dataset().target_schema_name",
+				"type": "Expression"
+			},
+			"table": {
+				"value": "@dataset().target_table_name",
+				"type": "Expression"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

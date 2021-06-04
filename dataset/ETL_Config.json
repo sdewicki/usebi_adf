@@ -1,0 +1,17 @@
+{
+	"name": "ETL_Config",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "RepositoryDWH",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "audit",
+			"table": "etl_config"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
